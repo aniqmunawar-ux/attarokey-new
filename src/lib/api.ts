@@ -1,9 +1,44 @@
 // Client-side Supabase Database API Helper & Sync Manager
+import { createClient } from "@supabase/supabase-js";
 
 export interface SupabaseStatus {
   connected: boolean;
   url: string | null;
+  anonKey?: string | null;
   reason: "connected" | "missing_keys";
+}
+
+let clientInstance: any = null;
+
+export async function getSupabaseClient(): Promise<any> {
+  if (clientInstance) return clientInstance;
+  
+  const status = await getSupabaseStatus();
+  if (status.connected && status.url && status.anonKey) {
+    let sanitizedUrl = status.url.trim();
+    if (sanitizedUrl.endsWith('/')) {
+      sanitizedUrl = sanitizedUrl.slice(0, -1);
+    }
+    if (sanitizedUrl.endsWith('/rest/v1')) {
+      sanitizedUrl = sanitizedUrl.slice(0, -8);
+    }
+    if (sanitizedUrl.endsWith('/')) {
+      sanitizedUrl = sanitizedUrl.slice(0, -1);
+    }
+    try {
+      clientInstance = createClient(sanitizedUrl, status.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true
+        }
+      });
+      return clientInstance;
+    } catch (err) {
+      console.error("Gagal menginisialisasi client Supabase di sisi client:", err);
+      return null;
+    }
+  }
+  return null;
 }
 
 // Convert camelCase string/object to snake_case

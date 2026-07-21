@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HumasAgenda, Santri, Kompleks, Kamar } from '../types';
 import KamarSub from './humas/KamarSub';
 import DataKamarSantriSub from './humas/DataKamarSantriSub';
-import { fetchTableData, insertTableRow, updateTableRow, deleteTableRow } from '../lib/api';
+import { fetchTableData, insertTableRow, updateTableRow, deleteTableRow, getSupabaseClient, snakeToCamel } from '../lib/api';
 import { DEFAULT_ROLES } from '../lib/permissions';
 
 interface HumasyViewProps {
@@ -99,10 +99,79 @@ export default function HumasyView({
 
     loadHumasData();
 
-    // Poll residential complexes and rooms every 10 seconds
-    const interval = setInterval(loadHumasData, 10000);
+    // Set up Realtime Websocket Sync
+    let isMounted = true;
+    let supabaseClient: any = null;
+    let activeChannel: any = null;
 
-    return () => clearInterval(interval);
+    const setupRealtime = async () => {
+      try {
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          console.warn("Supabase client is not initialized. Realtime sync is disabled.");
+          return;
+        }
+        supabaseClient = supabase;
+        if (!isMounted) return;
+
+        const uniqueChannelName = `humas-db-changes-${Math.random().toString(36).substring(2, 9)}`;
+        activeChannel = supabase.channel(uniqueChannelName)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kompleks' }, (payload: any) => {
+            console.log('Realtime kompleks:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setKompleksList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [...prev, newRow];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setKompleksList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setKompleksList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kamar' }, (payload: any) => {
+            console.log('Realtime kamar:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setKamarList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [...prev, newRow];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setKamarList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setKamarList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Gagal memulai koneksi realtime di HumasyView:", err);
+      }
+    };
+
+    setupRealtime();
+
+    // Poll residential complexes and rooms every 60 seconds as a background fallback
+    const interval = setInterval(loadHumasData, 60000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (supabaseClient && activeChannel) {
+        supabaseClient.removeChannel(activeChannel);
+      }
+    };
   }, []);
 
   // Save to localStorage as a local cache mirror

@@ -5,7 +5,7 @@ import {
   ArrowLeft, Search, GraduationCap, ArrowLeftRight, Check, CheckCircle2, 
   UserCheck, AlertCircle, X, MoreVertical, Award, ShieldAlert, UserMinus, ArrowRightLeft,
   Folder, FolderOpen, User, ArrowUpDown, Pencil, Settings, UserPlus, ArrowUp, ArrowDown,
-  ChevronDown
+  ChevronDown, ChevronsUpDown
 } from 'lucide-react';
 import { Lembaga, Kelas, Santri, KategoriRombel, KelompokRombel, RombelAssignment } from '../../types';
 import SantriDetailModal from '../sekretaris/SantriDetailModal';
@@ -27,6 +27,7 @@ interface LembagaKelasSubProps {
   onUpdateKelas: (upKel: Kelas) => any;
   onDeleteKelas: (id: string) => any;
   onUpdateSantriClass: (santriId: string, classText: string, lembagaId?: string) => void;
+  onUpdateSantri?: (s: Santri) => any;
   genderFilter?: 'Putra' | 'Putri';
   canViewPutra?: boolean;
   canViewPutri?: boolean;
@@ -62,6 +63,7 @@ export default function LembagaKelasSub({
   onUpdateKelas,
   onDeleteKelas,
   onUpdateSantriClass,
+  onUpdateSantri,
   genderFilter = 'Putra',
   canViewPutra = true,
   canViewPutri = true,
@@ -98,6 +100,8 @@ export default function LembagaKelasSub({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Semua');
   const [activeActionStudentId, setActiveActionStudentId] = useState<string | null>(null);
+  const [activeEmisDropdownId, setActiveEmisDropdownId] = useState<string | null>(null);
+  const [activeVervalDropdownId, setActiveVervalDropdownId] = useState<string | null>(null);
   const [activeActionKelasId, setActiveActionKelasId] = useState<string | null>(null);
   const [kelasDropdownPos, setKelasDropdownPos] = useState<{ top: number; left: number } | null>(null);
   const [studentDropdownPos, setStudentDropdownPos] = useState<{ top: number; left: number } | null>(null);
@@ -282,30 +286,61 @@ export default function LembagaKelasSub({
 
   // Sync scroll buttons status on data or view change
   useEffect(() => {
-    updateScrollButtons();
-    window.addEventListener('resize', updateScrollButtons);
-    // A small timeout helps catch DOM rendering shifts
-    const t = setTimeout(updateScrollButtons, 200);
-    return () => {
-      window.removeEventListener('resize', updateScrollButtons);
-      clearTimeout(t);
-    };
-  }, [selectedKelas, currentPage, searchQuery]);
+    const container = tableContainerRef.current;
+    if (!container) return;
 
-  // Close fixed floating dropdowns on scroll or resize anywhere
+    // Direct initial update
+    updateScrollButtons();
+
+    // Use ResizeObserver to detect layout shifts (e.g., when transitioning/opening/expanding or fullscreen toggles)
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollButtons();
+    });
+    resizeObserver.observe(container);
+
+    // Use MutationObserver to detect content modifications (such as changing columns or list size)
+    const mutationObserver = new MutationObserver(() => {
+      updateScrollButtons();
+    });
+    mutationObserver.observe(container, { childList: true, subtree: true, characterData: true });
+
+    // Also attach scroll listener
+    container.addEventListener('scroll', handleTableScroll);
+
+    window.addEventListener('resize', updateScrollButtons);
+
+    // Schedule several staggered timeouts to cover delayed rendering
+    const timeouts = [100, 300, 500, 1000].map(delay => 
+      setTimeout(updateScrollButtons, delay)
+    );
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      container.removeEventListener('scroll', handleTableScroll);
+      window.removeEventListener('resize', updateScrollButtons);
+      timeouts.forEach(clearTimeout);
+    };
+  }, [selectedKelas, selectedLembaga, currentPage, searchQuery, isSelectionMode, santriList]);
+
+  // Close fixed floating dropdowns on scroll, resize or click anywhere
   useEffect(() => {
     const handleCloseDropdowns = () => {
       setActiveActionKelasId(null);
       setKelasDropdownPos(null);
       setActiveActionStudentId(null);
       setStudentDropdownPos(null);
+      setActiveEmisDropdownId(null);
+      setActiveVervalDropdownId(null);
     };
 
     window.addEventListener('scroll', handleCloseDropdowns, true);
     window.addEventListener('resize', handleCloseDropdowns, true);
+    window.addEventListener('click', handleCloseDropdowns);
     return () => {
       window.removeEventListener('scroll', handleCloseDropdowns, true);
       window.removeEventListener('resize', handleCloseDropdowns, true);
+      window.removeEventListener('click', handleCloseDropdowns);
     };
   }, []);
 
@@ -491,11 +526,11 @@ export default function LembagaKelasSub({
         }
       } else {
         // Status Verval filter: 'Sukses' or 'Proses'
-        const isSukses = !!(s.nisn && s.nisn.trim() !== '');
+        const currentVerval = s.statusVerval || (s.nisn && s.nisn.trim() !== '' ? 'Sukses' : 'Proses');
         if (statusFilter === 'Sukses') {
-          return isSukses;
+          return currentVerval === 'Sukses';
         } else if (statusFilter === 'Proses') {
-          return !isSukses;
+          return currentVerval === 'Proses';
         }
       }
     }
@@ -950,7 +985,7 @@ export default function LembagaKelasSub({
 
   // Compute Verval stats
   const totalStudents = currentClassStudents.length;
-  const verifiedCount = currentClassStudents.filter(s => s.nisn && s.nisn.trim() !== '').length;
+  const verifiedCount = currentClassStudents.filter(s => (s.statusVerval || (s.nisn && s.nisn.trim() !== '' ? 'Sukses' : 'Proses')) === 'Sukses').length;
   const pendingCount = totalStudents - verifiedCount;
   const verifiedPercent = totalStudents > 0 ? Math.round((verifiedCount / totalStudents) * 100) : 0;
   const pendingPercent = totalStudents > 0 ? 100 - verifiedPercent : 0;
@@ -970,7 +1005,7 @@ export default function LembagaKelasSub({
 
   const isCalonPelajarPage = !!(selectedKelas && selectedKelas.nama.toLowerCase() === 'calon pelajar');
   const gridColsClass = isCalonPelajarPage
-    ? 'grid-cols-[55px_240px_120px_115px_105px_100px_110px_75px]'
+    ? 'grid-cols-[55px_240px_120px_115px_125px_120px_75px]'
     : 'grid-cols-[55px_240px_135px_135px_140px_140px_75px]';
 
   // Toggle selection for individual student
@@ -1869,10 +1904,10 @@ export default function LembagaKelasSub({
                             type="button"
                             onClick={() => scrollTable('left')}
                             disabled={!canScrollLeft}
-                            className={`absolute left-0 -translate-x-1/2 top-[26px] -translate-y-1/2 z-40 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
+                            className={`absolute left-2 top-[24px] -translate-y-1/2 z-45 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
                               canScrollLeft 
-                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100' 
-                                : 'border-slate-100 text-slate-300 opacity-0 pointer-events-none'
+                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100 scale-100' 
+                                : 'border-slate-100 text-slate-300 opacity-0 scale-90 pointer-events-none'
                             }`}
                             title="Gulir Kiri"
                           >
@@ -1884,10 +1919,10 @@ export default function LembagaKelasSub({
                             type="button"
                             onClick={() => scrollTable('right')}
                             disabled={!canScrollRight}
-                            className={`absolute right-0 translate-x-1/2 top-[26px] -translate-y-1/2 z-40 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
+                            className={`absolute right-2 top-[24px] -translate-y-1/2 z-45 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
                               canScrollRight 
-                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100' 
-                                : 'border-slate-100 text-slate-300 opacity-0 pointer-events-none'
+                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100 scale-100' 
+                                : 'border-slate-100 text-slate-300 opacity-0 scale-90 pointer-events-none'
                             }`}
                             title="Gulir Kanan"
                           >
@@ -1935,7 +1970,9 @@ export default function LembagaKelasSub({
                                 {isCalonPelajarPage && (
                                   <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">EMIS</div>
                                 )}
-                                <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">Verval</div>
+                                {!isCalonPelajarPage && (
+                                  <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">Verval</div>
+                                )}
                                 <div className="sticky right-0 z-30 bg-slate-50 select-none pr-6 py-4 flex items-center justify-end font-bold text-slate-400">
                                   Aksi
                                 </div>
@@ -2045,15 +2082,21 @@ export default function LembagaKelasSub({
                                                   const isUnderAge = calculatedAge < minAge;
                                                   const isOverAge = calculatedAge > maxAge;
                                                   const isAgeInvalid = isUnderAge || isOverAge;
-                                                  return (
-                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide leading-none shrink-0 ${
-                                                      isAgeInvalid 
-                                                        ? 'bg-rose-50 text-rose-600 border border-rose-100' 
-                                                        : 'bg-emerald-50 text-emerald-750 border border-emerald-100'
-                                                    }`} title={`Usia per tanggal batas: ${calculatedAge} tahun (Syarat: ${minAge} - ${maxAge} tahun)`}>
-                                                      {calculatedAge} Thn {isAgeInvalid ? '(!)' : '✓'}
-                                                    </span>
-                                                  );
+                                                  if (isAgeInvalid) {
+                                                    return (
+                                                      <AlertCircle 
+                                                        className="h-4 w-4 text-rose-500 hover:text-rose-600 cursor-help shrink-0 transition-colors" 
+                                                        title={`Peringatan: Usia santri (${calculatedAge} tahun) tidak memenuhi syarat usia ${minAge} - ${maxAge} tahun untuk kelas Calon Pelajar.`}
+                                                      />
+                                                    );
+                                                  } else {
+                                                    return (
+                                                      <CheckCircle2 
+                                                        className="h-4 w-4 text-emerald-500 hover:text-emerald-600 cursor-help shrink-0 transition-colors" 
+                                                        title={`Memenuhi Syarat Usia: Usia santri (${calculatedAge} tahun) memenuhi rentang ${minAge} - ${maxAge} tahun.`}
+                                                      />
+                                                    );
+                                                  }
                                                 }
                                               }
                                               return null;
@@ -2090,33 +2133,115 @@ export default function LembagaKelasSub({
                                             ? 'bg-[#E6F4EA] text-[#137333]'
                                             : 'bg-slate-100 text-slate-500'
                                         }`}>
-                                          {s.statusKeanggotaan}
+                                          {s.statusKeanggotaan || 'Aktif'}
                                         </span>
                                       </div>
 
                                       {/* EMIS Column */}
                                       {isCalonPelajarPage && (
-                                        <div className="pl-1 py-4.5 flex items-center">
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${
-                                            s.statusEmis === 'Terdaftar'
-                                              ? 'bg-blue-50 text-blue-700'
-                                              : 'bg-amber-50 text-amber-700'
-                                          }`}>
-                                            {s.statusEmis || 'Belum'}
-                                          </span>
+                                        <div className="pl-1 py-4.5 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+                                          <div className="relative inline-block text-left">
+                                            <button
+                                              disabled={!canWriteCurrent}
+                                              onClick={() => {
+                                                if (activeEmisDropdownId === s.id) {
+                                                  setActiveEmisDropdownId(null);
+                                                } else {
+                                                  setActiveEmisDropdownId(s.id);
+                                                  setActiveVervalDropdownId(null);
+                                                }
+                                              }}
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide transition-colors ${
+                                                s.statusEmis === 'Terdaftar'
+                                                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                              }`}
+                                            >
+                                              <span>{s.statusEmis || 'Belum'}</span>
+                                              <ChevronsUpDown className="h-3 w-3 opacity-60 shrink-0" />
+                                            </button>
+
+                                            {activeEmisDropdownId === s.id && (
+                                              <div className="absolute left-0 mt-1 w-28 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-[10px] font-bold text-slate-700">
+                                                {(['Terdaftar', 'Belum'] as const).map((emisOption) => (
+                                                  <button
+                                                    key={emisOption}
+                                                    onClick={() => {
+                                                      if (onUpdateSantri) {
+                                                        onUpdateSantri({
+                                                          ...s,
+                                                          statusEmis: emisOption
+                                                        });
+                                                      }
+                                                      setActiveEmisDropdownId(null);
+                                                    }}
+                                                    className={`w-full text-left px-2.5 py-1.5 transition-colors block ${
+                                                      (s.statusEmis || 'Belum') === emisOption
+                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                        : 'hover:bg-slate-50 text-slate-600'
+                                                    }`}
+                                                  >
+                                                    {emisOption}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
 
                                       {/* Verval */}
-                                      <div className="pl-1 py-4.5 flex items-center">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${
-                                          isNisnValid
-                                            ? 'bg-[#E6F4EA] text-[#137333]'
-                                            : 'bg-[#FCE8E6] text-[#C5221F]'
-                                        }`}>
-                                          {isNisnValid ? 'Sukses' : 'Proses'}
-                                        </span>
-                                      </div>
+                                      {!isCalonPelajarPage && (
+                                        <div className="pl-1 py-4.5 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+                                          <div className="relative inline-block text-left">
+                                            <button
+                                              disabled={!canWriteCurrent}
+                                              onClick={() => {
+                                                if (activeVervalDropdownId === s.id) {
+                                                  setActiveVervalDropdownId(null);
+                                                } else {
+                                                  setActiveVervalDropdownId(s.id);
+                                                  setActiveEmisDropdownId(null);
+                                                }
+                                              }}
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide transition-colors ${
+                                                (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === 'Sukses'
+                                                  ? 'bg-[#E6F4EA] text-[#137333] hover:bg-emerald-200'
+                                                  : 'bg-[#FCE8E6] text-[#C5221F] hover:bg-rose-200'
+                                              }`}
+                                            >
+                                              <span>{s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')}</span>
+                                              <ChevronsUpDown className="h-3 w-3 opacity-60 shrink-0" />
+                                            </button>
+
+                                            {activeVervalDropdownId === s.id && (
+                                              <div className="absolute left-0 mt-1 w-24 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-[10px] font-bold text-slate-700">
+                                                {(['Sukses', 'Proses'] as const).map((vervalOption) => (
+                                                  <button
+                                                    key={vervalOption}
+                                                    onClick={() => {
+                                                      if (onUpdateSantri) {
+                                                        onUpdateSantri({
+                                                          ...s,
+                                                          statusVerval: vervalOption
+                                                        });
+                                                      }
+                                                      setActiveVervalDropdownId(null);
+                                                    }}
+                                                    className={`w-full text-left px-2.5 py-1.5 transition-colors block ${
+                                                      (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === vervalOption
+                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                        : 'hover:bg-slate-50 text-slate-600'
+                                                    }`}
+                                                  >
+                                                    {vervalOption}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
 
                                       {/* Aksi */}
                                       <div className={`sticky right-0 z-10 flex items-center justify-end pr-6 py-4.5 transition-colors ${stickyBg}`}>

@@ -48,10 +48,12 @@ app.get("/api/supabase-status", (req, res) => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   const isReady = !!(url && key);
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || null;
   
   res.json({
     connected: isReady,
     url: url || null,
+    anonKey: anonKey,
     reason: isReady ? "connected" : "missing_keys"
   });
 });

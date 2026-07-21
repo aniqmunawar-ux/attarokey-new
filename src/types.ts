@@ -43,6 +43,7 @@ export interface Santri {
   statusKeanggotaan: 'Aktif' | 'Alumni' | 'Meninggal';
   statusDomisili?: 'Muqim' | 'Kampung';
   statusEmis?: 'Terdaftar' | 'Belum';
+  statusVerval?: 'Sukses' | 'Proses';
 
   // Administrasi
   tanggalKeluar?: string;

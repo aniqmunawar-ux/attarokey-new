@@ -5,7 +5,7 @@ import Header from './components/Header';
 import Drawer from './components/Drawer';
 import Sidebar from './components/Sidebar';
 import HelpModal from './components/HelpModal';
-import { fetchTableData, insertTableRow, insertTableRows, updateTableRow, deleteTableRow } from './lib/api';
+import { fetchTableData, insertTableRow, insertTableRows, updateTableRow, deleteTableRow, getSupabaseClient, snakeToCamel } from './lib/api';
 
 // Views
 import HomeView from './components/HomeView';
@@ -147,6 +147,19 @@ export default function App() {
  
   // On mount, load data from Supabase with localStorage fallback and set up automatic background polling
   React.useEffect(() => {
+    const cleanSantri = (s: any) => {
+      let updated = { ...s };
+      const unifiedStatus = s.statusKeanggotaan || s.status || 'Aktif';
+      updated.statusKeanggotaan = unifiedStatus as any;
+      if (s.kelas === 'VII Tsanawiyah A') {
+        updated.kelas = 'Tanpa Kelas';
+      }
+      if (s.kamar === 'Al-Ghazali 01' || s.kamar === 'Al Ghazali 01') {
+        updated.kamar = 'Tanpa Kamar';
+      }
+      return updated;
+    };
+
     const loadAllData = () => {
       fetchTableData<Santri>('santri', 'smartsantri_santriList', [])
         .then(list => {
@@ -216,11 +229,98 @@ export default function App() {
     };
 
     loadAllData();
+    
+    let isMounted = true;
+    let supabaseClient: any = null;
+    let activeChannel: any = null;
 
-    // Poll data every 4 seconds to provide a virtually instant, real-time feel while optimizing network/server requests
-    const interval = setInterval(loadAllData, 4000);
+    const setupRealtime = async () => {
+      try {
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          console.warn("Supabase client is not initialized. Realtime sync is disabled.");
+          return;
+        }
+        supabaseClient = supabase;
+        if (!isMounted) return;
 
-    return () => clearInterval(interval);
+        const uniqueChannelName = `schema-db-changes-${Math.random().toString(36).substring(2, 9)}`;
+        activeChannel = supabase.channel(uniqueChannelName)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'santri' }, (payload: any) => {
+            console.log('Realtime santri:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = cleanSantri(snakeToCamel(payload.new));
+              setSantriList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [newRow, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = cleanSantri(snakeToCamel(payload.new));
+              setSantriList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setSantriList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bendahara' }, (payload: any) => {
+            console.log('Realtime bendahara:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setBendaharaList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [newRow, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setBendaharaList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setBendaharaList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'keamanan' }, (payload: any) => {
+            console.log('Realtime keamanan:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setKeamananList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [newRow, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setKeamananList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setKeamananList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Gagal memulai koneksi realtime:", err);
+      }
+    };
+
+    setupRealtime();
+
+    // Poll data every 60 seconds as a robust background fallback instead of every 4 seconds to minimize Vercel bandwidth usage
+    const interval = setInterval(loadAllData, 60000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (supabaseClient && activeChannel) {
+        supabaseClient.removeChannel(activeChannel);
+      }
+    };
   }, []);
 
   // Sync state to localStorage

@@ -70,7 +70,7 @@ import { INITIAL_PERIZINAN } from '../data';
 import SantriDetailModal from './sekretaris/SantriDetailModal';
 import { BirthDatePicker } from './sekretaris/BirthDatePicker';
 import { getPesantrenProfile } from './SekretarisHelper';
-import { fetchTableData, insertTableRow, updateTableRow, deleteTableRow } from '../lib/api';
+import { fetchTableData, insertTableRow, updateTableRow, deleteTableRow, getSupabaseClient, snakeToCamel } from '../lib/api';
 import { DEFAULT_ROLES } from '../lib/permissions';
 
 const springTransition = {
@@ -1641,12 +1641,58 @@ export default function KeamananView({
 
     loadPerizinan();
 
-    // Poll perizinan table every 10 seconds to keep devices perfectly in sync
-    const interval = setInterval(loadPerizinan, 10000);
+    // Set up Realtime Websocket Sync
+    let supabaseClient: any = null;
+    let activeChannel: any = null;
+
+    const setupRealtime = async () => {
+      try {
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          console.warn("Supabase client is not initialized. Realtime sync is disabled.");
+          return;
+        }
+        supabaseClient = supabase;
+        if (!isMounted) return;
+
+        const uniqueChannelName = `perizinan-db-changes-${Math.random().toString(36).substring(2, 9)}`;
+        activeChannel = supabase.channel(uniqueChannelName)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'perizinan' }, (payload: any) => {
+            console.log('Realtime perizinan:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setPerizinanList(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [newRow, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setPerizinanList(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setPerizinanList(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Gagal memulai koneksi realtime perizinan:", err);
+      }
+    };
+
+    setupRealtime();
+
+    // Poll perizinan table every 60 seconds as a background fallback
+    const interval = setInterval(loadPerizinan, 60000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (supabaseClient && activeChannel) {
+        supabaseClient.removeChannel(activeChannel);
+      }
     };
   }, []);
 
@@ -2068,14 +2114,73 @@ export default function KeamananView({
     
     loadPeriods(true);
 
-    // Poll periods every 10 seconds to keep custom period names/ranges synchronized
+    // Set up Realtime Websocket Sync
+    let supabaseClient: any = null;
+    let activeChannel: any = null;
+
+    const setupRealtime = async () => {
+      try {
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          console.warn("Supabase client is not initialized. Realtime sync is disabled.");
+          return;
+        }
+        supabaseClient = supabase;
+        if (!isMounted) return;
+
+        const uniqueChannelName = `periode-db-changes-${Math.random().toString(36).substring(2, 9)}`;
+        activeChannel = supabase.channel(uniqueChannelName)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'periode' }, (payload: any) => {
+            console.log('Realtime periode:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setPeriodes(prev => {
+                const customOnly = prev.filter(p => p.id !== 'Semua');
+                if (customOnly.some(item => item.id === newRow.id)) {
+                  const updatedCustom = customOnly.map(item => item.id === newRow.id ? newRow : item);
+                  return [...PREDEFINED_PERIODES, ...updatedCustom];
+                }
+                return [...PREDEFINED_PERIODES, ...customOnly, newRow];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setPeriodes(prev => {
+                const customOnly = prev.filter(p => p.id !== 'Semua');
+                const updatedCustom = customOnly.map(item => item.id === updatedRow.id ? updatedRow : item);
+                return [...PREDEFINED_PERIODES, ...updatedCustom];
+              });
+              if (updatedRow.isActive) {
+                setSelectedPeriode(updatedRow.id);
+              }
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setPeriodes(prev => {
+                const customOnly = prev.filter(p => p.id !== 'Semua' && p.id !== oldId);
+                return [...PREDEFINED_PERIODES, ...customOnly];
+              });
+              setSelectedPeriode(prev => prev === oldId ? 'Semua' : prev);
+            }
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Gagal memulai koneksi realtime periode:", err);
+      }
+    };
+
+    setupRealtime();
+
+    // Poll periods every 60 seconds as a background fallback
     const interval = setInterval(() => {
       loadPeriods(false);
-    }, 10000);
+    }, 60000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (supabaseClient && activeChannel) {
+        supabaseClient.removeChannel(activeChannel);
+      }
     };
   }, [PREDEFINED_PERIODES]);
   const activePeriodeObj = useMemo(() => {
@@ -3413,12 +3518,58 @@ export default function KeamananView({
 
     loadKatalog();
 
-    // Poll katalog table every 10 seconds to keep devices perfectly in sync
-    const interval = setInterval(loadKatalog, 10000);
+    // Set up Realtime Websocket Sync
+    let supabaseClient: any = null;
+    let activeChannel: any = null;
+
+    const setupRealtime = async () => {
+      try {
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          console.warn("Supabase client is not initialized. Realtime sync is disabled.");
+          return;
+        }
+        supabaseClient = supabase;
+        if (!isMounted) return;
+
+        const uniqueChannelName = `katalog-db-changes-${Math.random().toString(36).substring(2, 9)}`;
+        activeChannel = supabase.channel(uniqueChannelName)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'katalog_pelanggaran' }, (payload: any) => {
+            console.log('Realtime katalog_pelanggaran:', payload);
+            if (!isMounted) return;
+            if (payload.eventType === 'INSERT') {
+              const newRow = snakeToCamel(payload.new);
+              setKatalog(prev => {
+                if (prev.some(item => item.id === newRow.id)) {
+                  return prev.map(item => item.id === newRow.id ? newRow : item);
+                }
+                return [...prev, newRow];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedRow = snakeToCamel(payload.new);
+              setKatalog(prev => prev.map(item => item.id === updatedRow.id ? updatedRow : item));
+            } else if (payload.eventType === 'DELETE') {
+              const oldId = payload.old.id;
+              setKatalog(prev => prev.filter(item => item.id !== oldId));
+            }
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Gagal memulai koneksi realtime katalog_pelanggaran:", err);
+      }
+    };
+
+    setupRealtime();
+
+    // Poll katalog table every 60 seconds as background fallback
+    const interval = setInterval(loadKatalog, 60000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (supabaseClient && activeChannel) {
+        supabaseClient.removeChannel(activeChannel);
+      }
     };
   }, []);
 

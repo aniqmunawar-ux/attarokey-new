@@ -1162,4 +1162,49 @@ ALTER TABLE public.santri ALTER COLUMN nis DROP NOT NULL;
 NOTIFY pgrst, 'reload schema';
 
 
+-- =============================================================
+-- 13. MENGAKTIFKAN SUPABASE REALTIME REPLICATION UNTUK SEMUA TABEL UTAMA
+-- =============================================================
+-- Mengubah REPLICA IDENTITY ke FULL untuk memastikan payload lengkap (termasuk old data saat DELETE/UPDATE) dikirimkan
+ALTER TABLE public.santri REPLICA IDENTITY FULL;
+ALTER TABLE public.bendahara REPLICA IDENTITY FULL;
+ALTER TABLE public.keamanan REPLICA IDENTITY FULL;
+ALTER TABLE public.lembaga REPLICA IDENTITY FULL;
+ALTER TABLE public.kelas REPLICA IDENTITY FULL;
+ALTER TABLE public.kompleks REPLICA IDENTITY FULL;
+ALTER TABLE public.kamar REPLICA IDENTITY FULL;
+ALTER TABLE public.kategori_rombel REPLICA IDENTITY FULL;
+ALTER TABLE public.kelompok_rombel REPLICA IDENTITY FULL;
+ALTER TABLE public.rombel_assignment REPLICA IDENTITY FULL;
+ALTER TABLE public.perizinan REPLICA IDENTITY FULL;
+ALTER TABLE public.periode REPLICA IDENTITY FULL;
+ALTER TABLE public.katalog_pelanggaran REPLICA IDENTITY FULL;
+ALTER TABLE public.pesantren_profile REPLICA IDENTITY FULL;
+ALTER TABLE public.app_credentials REPLICA IDENTITY FULL;
+ALTER TABLE public.feedback REPLICA IDENTITY FULL;
+
+-- Menghapus dan membuat ulang publikasi secara aman untuk mendaftarkan semua tabel secara realtime
+DROP PUBLICATION IF EXISTS supabase_realtime;
+
+CREATE PUBLICATION supabase_realtime FOR TABLE 
+    public.santri, 
+    public.bendahara, 
+    public.keamanan, 
+    public.lembaga, 
+    public.kelas, 
+    public.kompleks, 
+    public.kamar, 
+    public.kategori_rombel, 
+    public.kelompok_rombel, 
+    public.rombel_assignment, 
+    public.perizinan, 
+    public.periode, 
+    public.katalog_pelanggaran, 
+    public.pesantren_profile, 
+    public.app_credentials,
+    public.feedback;
+
+
+
+
 
