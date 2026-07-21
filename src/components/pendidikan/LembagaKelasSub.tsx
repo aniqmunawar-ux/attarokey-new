@@ -117,8 +117,8 @@ export default function LembagaKelasSub({
 
   // Scroll & Table navigation states
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [isScrollable, setIsScrollable] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [isScrollable, setIsScrollable] = useState(true);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const updateScrollButtons = () => {
@@ -1005,7 +1005,7 @@ export default function LembagaKelasSub({
 
   const isCalonPelajarPage = !!(selectedKelas && selectedKelas.nama.toLowerCase() === 'calon pelajar');
   const gridColsClass = isCalonPelajarPage
-    ? 'grid-cols-[55px_240px_120px_115px_125px_120px_75px]'
+    ? 'grid-cols-[55px_240px_120px_115px_105px_100px_110px_75px]'
     : 'grid-cols-[55px_240px_135px_135px_140px_140px_75px]';
 
   // Toggle selection for individual student
@@ -1895,8 +1895,7 @@ export default function LembagaKelasSub({
 
                     {/* 3. TABLE CONTAINER (No Outline and No Shadow as requested) */}
                     <div className="flex-1 flex flex-col min-h-0 relative group/table">
-                      
-                      {/* Scroll Navigation Buttons for Horizontal Scroll (only visible when table is scrollable) */}
+                                         {/* Scroll Navigation Buttons for Horizontal Scroll (only visible when table is scrollable) */}
                       {isScrollable && (
                         <>
                           {/* Scroll Left Button */}
@@ -1904,10 +1903,10 @@ export default function LembagaKelasSub({
                             type="button"
                             onClick={() => scrollTable('left')}
                             disabled={!canScrollLeft}
-                            className={`absolute left-2 top-[24px] -translate-y-1/2 z-45 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
+                            className={`absolute left-0 -translate-x-1/2 top-[26px] -translate-y-1/2 z-40 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
                               canScrollLeft 
-                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100 scale-100' 
-                                : 'border-slate-100 text-slate-300 opacity-0 scale-90 pointer-events-none'
+                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100' 
+                                : 'border-slate-100 text-slate-300 opacity-0 pointer-events-none'
                             }`}
                             title="Gulir Kiri"
                           >
@@ -1919,10 +1918,10 @@ export default function LembagaKelasSub({
                             type="button"
                             onClick={() => scrollTable('right')}
                             disabled={!canScrollRight}
-                            className={`absolute right-2 top-[24px] -translate-y-1/2 z-45 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
+                            className={`absolute right-0 translate-x-1/2 top-[26px] -translate-y-1/2 z-40 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-md transition-all duration-200 ${
                               canScrollRight 
-                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100 scale-100' 
-                                : 'border-slate-100 text-slate-300 opacity-0 scale-90 pointer-events-none'
+                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer opacity-100' 
+                                : 'border-slate-100 text-slate-300 opacity-0 pointer-events-none'
                             }`}
                             title="Gulir Kanan"
                           >
@@ -1970,9 +1969,7 @@ export default function LembagaKelasSub({
                                 {isCalonPelajarPage && (
                                   <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">EMIS</div>
                                 )}
-                                {!isCalonPelajarPage && (
-                                  <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">Verval</div>
-                                )}
+                                <div className="select-none font-bold text-slate-400 pl-3 py-4 flex items-center bg-slate-50 border-r border-slate-100/60">Verval</div>
                                 <div className="sticky right-0 z-30 bg-slate-50 select-none pr-6 py-4 flex items-center justify-end font-bold text-slate-400">
                                   Aksi
                                 </div>
@@ -2191,57 +2188,55 @@ export default function LembagaKelasSub({
                                       )}
 
                                       {/* Verval */}
-                                      {!isCalonPelajarPage && (
-                                        <div className="pl-1 py-4.5 flex items-center relative" onClick={(e) => e.stopPropagation()}>
-                                          <div className="relative inline-block text-left">
-                                            <button
-                                              disabled={!canWriteCurrent}
-                                              onClick={() => {
-                                                if (activeVervalDropdownId === s.id) {
-                                                  setActiveVervalDropdownId(null);
-                                                } else {
-                                                  setActiveVervalDropdownId(s.id);
-                                                  setActiveEmisDropdownId(null);
-                                                }
-                                              }}
-                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide transition-colors ${
-                                                (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === 'Sukses'
-                                                  ? 'bg-[#E6F4EA] text-[#137333] hover:bg-emerald-200'
-                                                  : 'bg-[#FCE8E6] text-[#C5221F] hover:bg-rose-200'
-                                              }`}
-                                            >
-                                              <span>{s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')}</span>
-                                              <ChevronsUpDown className="h-3 w-3 opacity-60 shrink-0" />
-                                            </button>
+                                      <div className="pl-1 py-4.5 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+                                        <div className="relative inline-block text-left">
+                                          <button
+                                            disabled={!canWriteCurrent}
+                                            onClick={() => {
+                                              if (activeVervalDropdownId === s.id) {
+                                                setActiveVervalDropdownId(null);
+                                              } else {
+                                                setActiveVervalDropdownId(s.id);
+                                                setActiveEmisDropdownId(null);
+                                              }
+                                            }}
+                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide transition-colors ${
+                                              (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === 'Sukses'
+                                                ? 'bg-[#E6F4EA] text-[#137333] hover:bg-emerald-200'
+                                                : 'bg-[#FCE8E6] text-[#C5221F] hover:bg-rose-200'
+                                            }`}
+                                          >
+                                            <span>{s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')}</span>
+                                            <ChevronsUpDown className="h-3 w-3 opacity-60 shrink-0" />
+                                          </button>
 
-                                            {activeVervalDropdownId === s.id && (
-                                              <div className="absolute left-0 mt-1 w-24 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-[10px] font-bold text-slate-700">
-                                                {(['Sukses', 'Proses'] as const).map((vervalOption) => (
-                                                  <button
-                                                    key={vervalOption}
-                                                    onClick={() => {
-                                                      if (onUpdateSantri) {
-                                                        onUpdateSantri({
-                                                          ...s,
-                                                          statusVerval: vervalOption
-                                                        });
-                                                      }
-                                                      setActiveVervalDropdownId(null);
-                                                    }}
-                                                    className={`w-full text-left px-2.5 py-1.5 transition-colors block ${
-                                                      (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === vervalOption
-                                                        ? 'bg-emerald-50 text-emerald-700'
-                                                        : 'hover:bg-slate-50 text-slate-600'
-                                                    }`}
-                                                  >
-                                                    {vervalOption}
-                                                  </button>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
+                                          {activeVervalDropdownId === s.id && (
+                                            <div className="absolute left-0 mt-1 w-24 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-[10px] font-bold text-slate-700">
+                                              {(['Sukses', 'Proses'] as const).map((vervalOption) => (
+                                                <button
+                                                  key={vervalOption}
+                                                  onClick={() => {
+                                                    if (onUpdateSantri) {
+                                                      onUpdateSantri({
+                                                        ...s,
+                                                        statusVerval: vervalOption
+                                                      });
+                                                    }
+                                                    setActiveVervalDropdownId(null);
+                                                  }}
+                                                  className={`w-full text-left px-2.5 py-1.5 transition-colors block ${
+                                                    (s.statusVerval || (isNisnValid ? 'Sukses' : 'Proses')) === vervalOption
+                                                      ? 'bg-emerald-50 text-emerald-700'
+                                                      : 'hover:bg-slate-50 text-slate-600'
+                                                  }`}
+                                                >
+                                                  {vervalOption}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
+                                      </div>
 
                                       {/* Aksi */}
                                       <div className={`sticky right-0 z-10 flex items-center justify-end pr-6 py-4.5 transition-colors ${stickyBg}`}>
