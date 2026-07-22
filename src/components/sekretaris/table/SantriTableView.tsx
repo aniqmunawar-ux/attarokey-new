@@ -603,7 +603,7 @@ export default function SantriTableView({
       {renderSortHeader('statusKeanggotaan', 'Status', false, 'w-[105px] min-w-[105px]')}
       {renderSortHeader('statusEmis', 'Emis', false, 'w-[95px] min-w-[95px]')}
       
-      <th className={`px-2 py-4 text-center font-display text-xs font-bold uppercase tracking-wider sticky top-0 right-0 z-35 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l w-[96px] min-w-[96px] transition-all duration-300 ${isSelectionMode ? 'hidden md:table-cell' : 'table-cell'} ${headerClass}`}>Aksi</th>
+      <th className={`px-2 py-4 text-center font-display text-xs font-bold uppercase tracking-wider sticky top-0 right-0 z-35 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l w-12 min-w-[48px] transition-all duration-300 ${isSelectionMode ? 'hidden md:table-cell' : 'table-cell'} ${headerClass}`}>Aksi</th>
     </tr>
   );
 
@@ -936,28 +936,13 @@ export default function SantriTableView({
                       e.stopPropagation();
                     }
                   }}
-                  className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 transition-colors shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-slate-100 w-[96px] min-w-[96px] ${
+                  className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 transition-colors shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-slate-100 w-12 min-w-[48px] ${
                     isSelectionMode
                       ? 'bg-slate-50 text-slate-400 hidden md:table-cell'
                       : 'bg-white group-hover:bg-slate-50 table-cell'
                   } ${activeSantriDropdownId === `tbl-${s.id}` || activeDesktopDropdownId === s.id ? 'z-[100]' : 'z-20'}`}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    {/* Biodata Button (Selalu Terlihat) */}
-                    <button
-                      type="button"
-                      disabled={isSelectionMode}
-                      onClick={() => setSelectedSantri(s)}
-                      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                        isSelectionMode
-                          ? 'bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-200'
-                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer active:scale-95'
-                      }`}
-                      title="Lihat Biodata Lengkap"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-
+                  <div className="flex items-center justify-center">
                     {/* Tombol Titik Tiga (Dropdown Aksi Lainnya) */}
                     <div className="relative inline-block text-left">
                       <button
@@ -1001,6 +986,18 @@ export default function SantriTableView({
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="space-y-0.5">
+                                {/* Detail Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDesktopDropdownId(null);
+                                    setSelectedSantri(s);
+                                  }}
+                                  className="flex w-full items-center px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                                >
+                                  <span>Detail Biodata</span>
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() => {

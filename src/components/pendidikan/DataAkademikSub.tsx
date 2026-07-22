@@ -1690,7 +1690,7 @@ export default function DataAkademikSub({
                       )}
 
                       {/* Sticky Aksi Column with 3-Dots Dropdown Menu */}
-                      <td className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 border-l border-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] overflow-visible ${
+                      <td className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 border-l border-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] overflow-visible w-12 min-w-[48px] ${
                         openDropdownRowId === s.id ? 'z-50' : 'z-20'
                       }`}>
                         <div className="flex items-center justify-center overflow-visible" onClick={(e) => e.stopPropagation()}>

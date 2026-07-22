@@ -5281,7 +5281,7 @@ export default function KeamananView({
                               </div>
                             </th>
 
-                            <th className="py-3 px-4 text-center w-24 text-slate-400 sticky right-0 bg-slate-50 z-20 border-l border-slate-100 select-none">Aksi</th>
+                            <th className="py-3 px-4 text-center w-12 min-w-[48px] text-slate-400 sticky right-0 bg-slate-50 z-20 border-l border-slate-100 select-none">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
@@ -5339,7 +5339,7 @@ export default function KeamananView({
                                     {ind.text}
                                   </span>
                                 </td>
-                                <td className={`py-3.5 px-4 text-center whitespace-nowrap sticky right-0 bg-white border-l border-slate-100 transition-colors ${
+                                <td className={`py-3.5 px-4 text-center whitespace-nowrap sticky right-0 bg-white border-l border-slate-100 transition-colors w-12 min-w-[48px] ${
                                   activeDropdownStudentId === student.id ? 'z-[60]' : 'z-10'
                                 }`}>
                                   <div className="relative inline-block text-left">

@@ -1353,7 +1353,7 @@ export default function DataKamarSantriSub({
                       </td>
 
                       {/* Sticky Aksi Column with 3-Dots Dropdown Menu */}
-                      <td className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 border-l border-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.02)] ${
+                      <td className={`px-2 py-4 text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 border-l border-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.02)] w-12 min-w-[48px] ${
                         activeActionMenuId === s.id ? 'z-30' : 'z-20'
                       }`}>
                         <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
